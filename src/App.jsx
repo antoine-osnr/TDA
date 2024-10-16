@@ -2,6 +2,8 @@ import React from 'react';
 import { DeckGL } from '@deck.gl/react';
 import { GeoJsonLayer } from '@deck.gl/layers';
 import { MapView } from '@deck.gl/core';
+import { load } from '@loaders.gl/core';
+import { GeoPackageLoader } from '@loaders.gl/geopackage';
 
 const INITIAL_VIEW_STATE = {
   longitude: 2.2137,
