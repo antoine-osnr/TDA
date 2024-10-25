@@ -4,6 +4,8 @@ import { GeoJsonLayer, BitmapLayer } from '@deck.gl/layers';
 import {TileLayer} from '@deck.gl/geo-layers';
 import { MapView, FlyToInterpolator } from '@deck.gl/core';
 import { easeCubic } from 'd3-ease';
+// import CircularProgress from '@mui/material/CircularProgress';
+import { ButtonGroup, Button, CircularProgress } from '@mui/material';
 
 const INITIAL_VIEW_STATE = {
   longitude: 2.2137,
@@ -13,8 +15,9 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
-const FRENCH_REGIONS = './REGION.json';
-const FRENCH_DEPARTEMENTS = './DEPARTEMENT.json';
+const FRENCH_REGIONS = './src/json/REGION.json';
+const FRENCH_DEPARTEMENTS = './src/json/DEPARTEMENT.json';
+const FRENCH_COMMUNES = './src/json/COMMUNE.json';
 
 function App() {
   const [activeLayer, setActiveLayer] = useState('region');
@@ -22,6 +25,18 @@ function App() {
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [clickedFeature, setClickedFeature] = useState(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
+  const [loading, setLoading] = useState(false);
+
+  // Monitor zoom level to automatically switch layers
+  useEffect(() => {
+    if (viewState.zoom >= 11 && activeLayer !== 'commune') {
+      setActiveLayer('commune');
+    } else if (viewState.zoom >= 8 && viewState.zoom < 11 && activeLayer !== 'departement') {
+      setActiveLayer('departement');
+    } else if (viewState.zoom < 8 && activeLayer !== 'region') {
+      setActiveLayer('region');
+    }
+  }, [viewState.zoom, activeLayer]);
 
   useEffect(() => {
     const loadLayer = async () => {
@@ -34,25 +49,27 @@ function App() {
         pickable: true,
         onHover: ({ object }) => {
           if (object) setHoveredFeature(object);
-          else setHoveredFeature(null); // Reset hover state when not hovering
+          else setHoveredFeature(null);
         },
         onClick: info => {
           if (info.object) {
-            setClickedFeature(info.object); // Update clicked feature
+            setClickedFeature(info.object);
             setViewState({
               ...viewState,
               longitude: info.coordinate[0],
               latitude: info.coordinate[1],
-              zoom: activeLayer === 'departement' ? 8 : 7, // Higher zoom for departement
-              transitionDuration: 1000, // Smooth transition
+              zoom: activeLayer === 'departement' ? 9 : 7,
+              transitionDuration: 1000,
               transitionInterpolator: new FlyToInterpolator(),
               transitionEasing: easeCubic,
             });
+          } else {
+            setClickedFeature(null);
           }
         },
         updateTriggers: {
           getFillColor: [hoveredFeature, clickedFeature],
-          getLineColor: [hoveredFeature, clickedFeature], // Update line color on changes
+          getLineColor: [hoveredFeature, clickedFeature],
         },
       };
 
@@ -97,11 +114,31 @@ function App() {
           });
           break;
 
+          case 'commune':
+          layerData = new GeoJsonLayer({
+            id: 'commune-layer',
+            data: FRENCH_COMMUNES,
+            ...commonLayerSettings,
+            getLineColor: d => {
+              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 255];
+              if (clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 255];
+              return [0, 150, 255, 20];
+            },
+            getFillColor: d => {
+              if (hoveredFeature && clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 50];
+              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 80];
+              if (clickedFeature && clickedFeature.properties.ID !== d.properties.ID) return [0, 150, 255, 0];
+              return [0, 150, 255, 50];
+            }
+          });
+          break;
+
         default:
           layerData = null;
       }
 
       setLayers([layerData]);
+      setLoading(false); // Stop loading once layer is set
     };
 
     loadLayer();
@@ -109,7 +146,7 @@ function App() {
 
   const countriesLayer = new TileLayer({
     id: 'tile-layer',
-    data: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    data: 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', 
     minZoom: 0,
     maxZoom: 19,
     tileSize: 256,
@@ -135,10 +172,35 @@ function App() {
         views={new MapView({ repeat: true })}
         style={{ height: "100vh", width: "100%" }}
       />
-      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-        <button onClick={() => setActiveLayer('region')}>Show Regions</button>
-        <button onClick={() => setActiveLayer('departement')}>Show Departements</button>
-      </div>
+      {/* <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
+        <ButtonGroup orientation="horizontal">
+          <Button onClick={() => setActiveLayer('region')} className={activeLayer === 'region' ? 'active' : ''}>
+            Show Regions
+          </Button>
+          <Button onClick={() => setActiveLayer('departement')} className={activeLayer === 'departement' ? 'active' : ''}>
+            Show Departements
+          </Button>
+        </ButtonGroup>
+      </div> */}
+
+      {/* Loader overlay */}
+      {loading && (
+        <div style={{
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          zIndex: 2
+        }}>
+          <CircularProgress size={60} />
+        </div>
+      )}
+      
       {clickedFeature && (
         <div style={{ position: 'absolute', top: '50px', left: '10px', zIndex: 1, background: 'white', padding: '5px' }}>
           <strong>Clicked Feature:</strong> {clickedFeature.properties.NOM || 'Unknown'}
@@ -149,4 +211,3 @@ function App() {
 }
 
 export default App;
-
