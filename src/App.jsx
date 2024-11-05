@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { DeckGL } from '@deck.gl/react';
 import { GeoJsonLayer, BitmapLayer } from '@deck.gl/layers';
 import {TileLayer} from '@deck.gl/geo-layers';
 import { MapView, FlyToInterpolator } from '@deck.gl/core';
 import { easeCubic } from 'd3-ease';
-// import CircularProgress from '@mui/material/CircularProgress';
-import { ButtonGroup, Button, CircularProgress } from '@mui/material';
+import { ButtonGroup, Button } from '@mui/material';
+
 
 const INITIAL_VIEW_STATE = {
   longitude: 2.2137,
@@ -25,20 +25,31 @@ function App() {
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [clickedFeature, setClickedFeature] = useState(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showWindLayer, setShowWindLayer] = useState(false);
+  const [windData, setWindData] = useState(null);
 
-  // Monitor zoom level to automatically switch layers
+
+  const previousLayer = useRef(activeLayer);
+
   useEffect(() => {
-    if (viewState.zoom >= 11 && activeLayer !== 'commune') {
+    const { zoom } = viewState;
+
+    if (zoom >= 11 && activeLayer !== 'commune') {
       setActiveLayer('commune');
-    } else if (viewState.zoom >= 8 && viewState.zoom < 11 && activeLayer !== 'departement') {
+    } else if (zoom >= 8 && zoom < 10 && activeLayer !== 'departement') {
       setActiveLayer('departement');
-    } else if (viewState.zoom < 8 && activeLayer !== 'region') {
+    } else if (zoom < 8 && activeLayer !== 'region') {
       setActiveLayer('region');
     }
   }, [viewState.zoom, activeLayer]);
 
   useEffect(() => {
+    if (previousLayer.current !== activeLayer) {
+      setIsLoading(true);
+      previousLayer.current = activeLayer;
+    }
+
     const loadLayer = async () => {
       let layerData;
 
@@ -58,7 +69,7 @@ function App() {
               ...viewState,
               longitude: info.coordinate[0],
               latitude: info.coordinate[1],
-              zoom: activeLayer === 'departement' ? 9 : 7,
+              zoom: activeLayer === 'commune' ? 12 : activeLayer === 'departement' ? 9 : 8,
               transitionDuration: 1000,
               transitionInterpolator: new FlyToInterpolator(),
               transitionEasing: easeCubic,
@@ -103,7 +114,7 @@ function App() {
             getLineColor: d => {
               if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 255]; // Darker on hover for all
               if (clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 255]; // Darker on click
-              return [0, 150, 255, 20]; // Default color  
+              return [0, 150, 255, 40]; // Default color  
             },
             getFillColor: d => {
               if (hoveredFeature && clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 50]; // Darker on hover once clicked but not the one clicked
@@ -138,11 +149,40 @@ function App() {
       }
 
       setLayers([layerData]);
-      setLoading(false); // Stop loading once layer is set
+      setTimeout(() => setIsLoading(false), 1000);
     };
 
     loadLayer();
-  }, [activeLayer, hoveredFeature, clickedFeature, viewState]); // Re-run on activeLayer, hoveredFeature, clickedFeature, or viewState change
+  }, [activeLayer, hoveredFeature, clickedFeature, viewState]);
+
+  useEffect(() => {
+    const fetchWindData = async () => {
+      const response = await fetch('URL_DE_VOTRE_API_DE_VITESSE_DU_VENT');
+      const data = await response.json();
+      setWindData(data);
+    };
+
+    if (showWindLayer) {
+      fetchWindData();
+    }
+  }, [showWindLayer]);
+
+  useEffect(() => {
+    if (windData) {
+      const windLayer = new GeoJsonLayer({
+        id: 'wind-layer',
+        data: windData,
+        stroked: false,
+        filled: true,
+        getFillColor: [255, 0, 0, 100],
+        getRadius: 100,
+        pointRadiusMinPixels: 2,
+        pointRadiusScale: 2000,
+      });
+
+      setLayers(prevLayers => [...prevLayers, windLayer]);
+    }
+  }, [windData]);
 
   const countriesLayer = new TileLayer({
     id: 'tile-layer',
@@ -172,35 +212,20 @@ function App() {
         views={new MapView({ repeat: true })}
         style={{ height: "100vh", width: "100%" }}
       />
-      {/* <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-        <ButtonGroup orientation="horizontal">
-          <Button onClick={() => setActiveLayer('region')} className={activeLayer === 'region' ? 'active' : ''}>
-            Show Regions
-          </Button>
-          <Button onClick={() => setActiveLayer('departement')} className={activeLayer === 'departement' ? 'active' : ''}>
-            Show Departements
+      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
+      <ButtonGroup orientation="horizontal">
+          <Button onClick={() => setShowWindLayer(!showWindLayer)} className={showWindLayer ? 'active' : ''}>
+            {showWindLayer ? 'Hide Wind Layer' : 'Show Wind Layer'}
           </Button>
         </ButtonGroup>
-      </div> */}
-
-      {/* Loader overlay */}
-      {loading && (
-        <div style={{
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          width: '100%', 
-          height: '100%', 
-          backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          zIndex: 2
-        }}>
-          <CircularProgress size={60} />
+      </div>
+      {isLoading && (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999 }}>
+          <div className="loader"></div> {/* Loader CSS */}
         </div>
       )}
-      
+
+
       {clickedFeature && (
         <div style={{ position: 'absolute', top: '50px', left: '10px', zIndex: 1, background: 'white', padding: '5px' }}>
           <strong>Clicked Feature:</strong> {clickedFeature.properties.NOM || 'Unknown'}
