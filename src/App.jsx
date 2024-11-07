@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { DeckGL } from '@deck.gl/react';
 import { GeoJsonLayer, BitmapLayer } from '@deck.gl/layers';
-import {TileLayer} from '@deck.gl/geo-layers';
+import { TileLayer } from '@deck.gl/geo-layers';
 import { MapView, FlyToInterpolator } from '@deck.gl/core';
 import { easeCubic } from 'd3-ease';
 import { ButtonGroup, Button } from '@mui/material';
@@ -28,9 +28,14 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showWindLayer, setShowWindLayer] = useState(false);
   const [windData, setWindData] = useState(null);
-
-
   const previousLayer = useRef(activeLayer);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (event) => {
+    if (hoveredFeature) {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    }
+  };
 
   useEffect(() => {
     const { zoom } = viewState;
@@ -84,7 +89,7 @@ function App() {
         },
       };
 
-      
+
       switch (activeLayer) {
         case 'region':
           layerData = new GeoJsonLayer({
@@ -92,16 +97,17 @@ function App() {
             data: FRENCH_REGIONS,
             ...commonLayerSettings,
             getLineColor: d => {
-              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 255]; // Darker on hover for all
-              if (clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 255]; // Darker on click
-              return [0, 150, 255, 20]; // Default color           
+              // if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 255]; // Darker on hover for all
+              // if (clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 255]; // Darker on click
+              return [255, 255, 255, 255]; // Default color
             },
-            
+            lineWidthMaxPixels: 1,
+
             getFillColor: d => {
-              if (hoveredFeature && clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 50]; // Darker on hover once clicked but not the one clicked
-              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 80]; // Darker on hover for all
-              if (clickedFeature && clickedFeature.properties.ID !== d.properties.ID) return [0, 150, 255, 0]; // Reset color for all except the one clicked
-              return [0, 150, 255, 50]; // Default color
+              // if (hoveredFeature && clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 50]; // Darker on hover once clicked but not the one clicked
+              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [62, 68, 145, 230]; // Darker on hover for all
+              // if (clickedFeature && clickedFeature.properties.ID !== d.properties.ID) return [0, 150, 255, 0]; // Reset color for all except the one clicked
+              return [62, 68, 145, 255]; // Default color
             }
           });
           break;
@@ -125,7 +131,7 @@ function App() {
           });
           break;
 
-          case 'commune':
+        case 'commune':
           layerData = new GeoJsonLayer({
             id: 'commune-layer',
             data: FRENCH_COMMUNES,
@@ -186,13 +192,13 @@ function App() {
 
   const countriesLayer = new TileLayer({
     id: 'tile-layer',
-    data: 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', 
+    data: 'https://basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
     minZoom: 0,
     maxZoom: 19,
     tileSize: 256,
     renderSubLayers: props => {
       const {
-        bbox: {west, south, east, north}
+        bbox: { west, south, east, north }
       } = props.tile;
       return new BitmapLayer(props, {
         data: null,
@@ -203,7 +209,7 @@ function App() {
   });
 
   return (
-    <div>
+    <div onMouseMove={handleMouseMove}>
       <DeckGL
         viewState={viewState}
         onViewStateChange={({ viewState }) => setViewState(viewState)}
@@ -213,7 +219,7 @@ function App() {
         style={{ height: "100vh", width: "100%" }}
       />
       <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-      <ButtonGroup orientation="horizontal">
+        <ButtonGroup orientation="horizontal">
           <Button onClick={() => setShowWindLayer(!showWindLayer)} className={showWindLayer ? 'active' : ''}>
             {showWindLayer ? 'Hide Wind Layer' : 'Show Wind Layer'}
           </Button>
@@ -225,12 +231,24 @@ function App() {
         </div>
       )}
 
-
-      {clickedFeature && (
-        <div style={{ position: 'absolute', top: '50px', left: '10px', zIndex: 1, background: 'white', padding: '5px' }}>
-          <strong>Clicked Feature:</strong> {clickedFeature.properties.NOM || 'Unknown'}
+      {/* Tooltip to display information about an object (regions/departements/communes) */}
+      {hoveredFeature && (
+        <div style={{ 
+          position: 'absolute',
+          top: `${mousePosition.y - 100}px`,
+          left: `${mousePosition.x + 30}px`,
+          zIndex: 1,
+          padding: '10px',
+          backgroundColor: '#fff',
+          borderRadius: '5px',
+          boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
+          minWidth: '150px',
+          textAlign: 'center'
+        }}>
+          <h3>{hoveredFeature.properties.NOM}</h3>
         </div>
       )}
+
     </div>
   );
 }
