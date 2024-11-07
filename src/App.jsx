@@ -1,254 +1,93 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { DeckGL } from '@deck.gl/react';
-import { GeoJsonLayer, BitmapLayer } from '@deck.gl/layers';
-import { TileLayer } from '@deck.gl/geo-layers';
-import { MapView, FlyToInterpolator } from '@deck.gl/core';
-import { easeCubic } from 'd3-ease';
-import { ButtonGroup, Button } from '@mui/material';
+import React, { useState, useEffect, useRef } from 'react';
+import { INITIAL_VIEW_STATE } from './config';
+import MapContainer from './components/MapContainer';
+import Tooltip from './components/Tooltip';
+import Loader from './components/Loader';
+import useLayerLoader from './hooks/useLayerLoader';
 
-
-const INITIAL_VIEW_STATE = {
-  longitude: 2.2137,
-  latitude: 46.2276,
-  zoom: 5,
-  pitch: 45,
-  bearing: 0
-};
-
-const FRENCH_REGIONS = './src/json/REGION.json';
-const FRENCH_DEPARTEMENTS = './src/json/DEPARTEMENT.json';
-const FRENCH_COMMUNES = './src/json/COMMUNE.json';
-
+/**
+ * The main application component that renders a map and handles user interactions.
+ *
+ * @component
+ * @returns {JSX.Element} The rendered component.
+ *
+ * @example
+ * return <App />;
+ *
+ * @description
+ * This component manages the state of the map view, including the active layer, hovered feature,
+ * clicked feature, view state, and mouse position. It adjusts the active layer based on the zoom level
+ * and updates the map layers accordingly. It also handles mouse movement to update the mouse position
+ * when a feature is hovered.
+ *
+ * @function
+ * @name App
+ *
+ * @property {string} activeLayer - The currently active map layer.
+ * @property {function} setActiveLayer - Function to update the active layer.
+ * @property {object|null} hoveredFeature - The feature currently being hovered over, or null if none.
+ * @property {function} setHoveredFeature - Function to update the hovered feature.
+ * @property {object|null} clickedFeature - The feature currently being clicked, or null if none.
+ * @property {function} setClickedFeature - Function to update the clicked feature.
+ * @property {object} viewState - The current view state of the map.
+ * @property {function} setViewState - Function to update the view state.
+ * @property {object} mousePosition - The current mouse position.
+ * @property {function} setMousePosition - Function to update the mouse position.
+ * @property {object} previousLayer - A reference to the previous active layer.
+ * @property {function} useEffect - Hook to monitor zoom level and adjust active layer.
+ * @property {object} useLayerLoader - Hook to load map layers based on the current state.
+ * @property {function} handleMouseMove - Function to handle mouse movement and update mouse position.
+ */
 function App() {
   const [activeLayer, setActiveLayer] = useState('region');
-  const [layers, setLayers] = useState([]);
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [clickedFeature, setClickedFeature] = useState(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showWindLayer, setShowWindLayer] = useState(false);
-  const [windData, setWindData] = useState(null);
-  const previousLayer = useRef(activeLayer);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const previousLayer = useRef(activeLayer);
 
-  const handleMouseMove = (event) => {
-    if (hoveredFeature) {
-      setMousePosition({ x: event.clientX, y: event.clientY });
-    }
-  };
-
+  // Monitor zoom level and adjust active layer based on zoom thresholds
   useEffect(() => {
     const { zoom } = viewState;
 
     if (zoom >= 11 && activeLayer !== 'commune') {
       setActiveLayer('commune');
-    } else if (zoom >= 8 && zoom < 10 && activeLayer !== 'departement') {
+    } else if (zoom >= 8 && zoom < 11 && activeLayer !== 'departement') {
       setActiveLayer('departement');
     } else if (zoom < 8 && activeLayer !== 'region') {
       setActiveLayer('region');
     }
   }, [viewState.zoom, activeLayer]);
 
-  useEffect(() => {
-    if (previousLayer.current !== activeLayer) {
-      setIsLoading(true);
-      previousLayer.current = activeLayer;
-    }
-
-    const loadLayer = async () => {
-      let layerData;
-
-      const commonLayerSettings = {
-        stroked: true,
-        filled: true,
-        lineWidthMinPixels: 2,
-        pickable: true,
-        onHover: ({ object }) => {
-          if (object) setHoveredFeature(object);
-          else setHoveredFeature(null);
-        },
-        onClick: info => {
-          if (info.object) {
-            setClickedFeature(info.object);
-            setViewState({
-              ...viewState,
-              longitude: info.coordinate[0],
-              latitude: info.coordinate[1],
-              zoom: activeLayer === 'commune' ? 12 : activeLayer === 'departement' ? 9 : 8,
-              transitionDuration: 1000,
-              transitionInterpolator: new FlyToInterpolator(),
-              transitionEasing: easeCubic,
-            });
-          } else {
-            setClickedFeature(null);
-          }
-        },
-        updateTriggers: {
-          getFillColor: [hoveredFeature, clickedFeature],
-          getLineColor: [hoveredFeature, clickedFeature],
-        },
-      };
-
-
-      switch (activeLayer) {
-        case 'region':
-          layerData = new GeoJsonLayer({
-            id: 'region-layer',
-            data: FRENCH_REGIONS,
-            ...commonLayerSettings,
-            getLineColor: d => {
-              // if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 255]; // Darker on hover for all
-              // if (clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 255]; // Darker on click
-              return [255, 255, 255, 255]; // Default color
-            },
-            lineWidthMaxPixels: 1,
-
-            getFillColor: d => {
-              // if (hoveredFeature && clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 50]; // Darker on hover once clicked but not the one clicked
-              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [62, 68, 145, 230]; // Darker on hover for all
-              // if (clickedFeature && clickedFeature.properties.ID !== d.properties.ID) return [0, 150, 255, 0]; // Reset color for all except the one clicked
-              return [62, 68, 145, 255]; // Default color
-            }
-          });
-          break;
-
-        case 'departement':
-          layerData = new GeoJsonLayer({
-            id: 'departement-layer',
-            data: FRENCH_DEPARTEMENTS,
-            ...commonLayerSettings,
-            getLineColor: d => {
-              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 255]; // Darker on hover for all
-              if (clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 255]; // Darker on click
-              return [0, 150, 255, 40]; // Default color  
-            },
-            getFillColor: d => {
-              if (hoveredFeature && clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 50]; // Darker on hover once clicked but not the one clicked
-              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 80]; // Darker on hover for all
-              if (clickedFeature && clickedFeature.properties.ID !== d.properties.ID) return [0, 150, 255, 0]; // Reset color for all except the one clicked
-              return [0, 150, 255, 50]; // Default color
-            },
-          });
-          break;
-
-        case 'commune':
-          layerData = new GeoJsonLayer({
-            id: 'commune-layer',
-            data: FRENCH_COMMUNES,
-            ...commonLayerSettings,
-            getLineColor: d => {
-              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 255];
-              if (clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 255];
-              return [0, 150, 255, 20];
-            },
-            getFillColor: d => {
-              if (hoveredFeature && clickedFeature && clickedFeature.properties.ID === d.properties.ID) return [0, 150, 255, 50];
-              if (hoveredFeature && hoveredFeature.properties.ID === d.properties.ID) return [0, 125, 255, 80];
-              if (clickedFeature && clickedFeature.properties.ID !== d.properties.ID) return [0, 150, 255, 0];
-              return [0, 150, 255, 50];
-            }
-          });
-          break;
-
-        default:
-          layerData = null;
-      }
-
-      setLayers([layerData]);
-      setTimeout(() => setIsLoading(false), 1000);
-    };
-
-    loadLayer();
-  }, [activeLayer, hoveredFeature, clickedFeature, viewState]);
-
-  useEffect(() => {
-    const fetchWindData = async () => {
-      const response = await fetch('URL_DE_VOTRE_API_DE_VITESSE_DU_VENT');
-      const data = await response.json();
-      setWindData(data);
-    };
-
-    if (showWindLayer) {
-      fetchWindData();
-    }
-  }, [showWindLayer]);
-
-  useEffect(() => {
-    if (windData) {
-      const windLayer = new GeoJsonLayer({
-        id: 'wind-layer',
-        data: windData,
-        stroked: false,
-        filled: true,
-        getFillColor: [255, 0, 0, 100],
-        getRadius: 100,
-        pointRadiusMinPixels: 2,
-        pointRadiusScale: 2000,
-      });
-
-      setLayers(prevLayers => [...prevLayers, windLayer]);
-    }
-  }, [windData]);
-
-  const countriesLayer = new TileLayer({
-    id: 'tile-layer',
-    data: 'https://basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
-    minZoom: 0,
-    maxZoom: 19,
-    tileSize: 256,
-    renderSubLayers: props => {
-      const {
-        bbox: { west, south, east, north }
-      } = props.tile;
-      return new BitmapLayer(props, {
-        data: null,
-        image: props.data,
-        bounds: [west, south, east, north]
-      });
-    }
+  // Load map layers based on the current state
+  const { layers, isLoading } = useLayerLoader({
+    activeLayer,
+    hoveredFeature,
+    clickedFeature,
+    viewState,
+    setHoveredFeature,
+    setClickedFeature,
+    setViewState,
+    previousLayer,
   });
 
+  // Handle mouse movement and update mouse position when a feature is hovered
+  const handleMouseMove = (event) => {
+    if (hoveredFeature) {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    }
+  };
+
+  // Render the map, loader, and tooltip components
   return (
     <div onMouseMove={handleMouseMove}>
-      <DeckGL
+      <MapContainer
         viewState={viewState}
-        onViewStateChange={({ viewState }) => setViewState(viewState)}
-        controller={true}
-        layers={[countriesLayer, ...layers]}
-        views={new MapView({ repeat: true })}
-        style={{ height: "100vh", width: "100%" }}
+        onViewStateChange={(newViewState) => setViewState(newViewState)}
+        layers={layers}
       />
-      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-        <ButtonGroup orientation="horizontal">
-          <Button onClick={() => setShowWindLayer(!showWindLayer)} className={showWindLayer ? 'active' : ''}>
-            {showWindLayer ? 'Hide Wind Layer' : 'Show Wind Layer'}
-          </Button>
-        </ButtonGroup>
-      </div>
-      {isLoading && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999 }}>
-          <div className="loader"></div> {/* Loader CSS */}
-        </div>
-      )}
-
-      {/* Tooltip to display information about an object (regions/departements/communes) */}
-      {hoveredFeature && (
-        <div style={{ 
-          position: 'absolute',
-          top: `${mousePosition.y - 100}px`,
-          left: `${mousePosition.x + 30}px`,
-          zIndex: 1,
-          padding: '10px',
-          backgroundColor: '#fff',
-          borderRadius: '5px',
-          boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
-          minWidth: '150px',
-          textAlign: 'center'
-        }}>
-          <h3>{hoveredFeature.properties.NOM}</h3>
-        </div>
-      )}
-
+      {isLoading && <Loader />}
+      {hoveredFeature && <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />}
     </div>
   );
 }
