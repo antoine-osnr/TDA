@@ -4,6 +4,7 @@ import MapContainer from './components/MapContainer';
 import Tooltip from './components/Tooltip';
 import Loader from './components/Loader';
 import useLayerLoader from './hooks/useLayerLoader';
+import ProductionInformation from './components/ProductionInformation';
 
 /**
  * The main application component that renders a map and handles user interactions.
@@ -80,15 +81,19 @@ function App() {
 
   // Render the map, loader, and tooltip components
   return (
-    <div onMouseMove={handleMouseMove}>
-      <MapContainer
-        viewState={viewState}
-        onViewStateChange={(newViewState) => setViewState(newViewState)}
-        layers={layers}
-      />
-      {isLoading && <Loader />}
-      {hoveredFeature && <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />}
-    </div>
+    <>
+      <ProductionInformation />
+      <div onMouseMove={handleMouseMove}>
+        <MapContainer
+          viewState={viewState}
+          onViewStateChange={(newViewState) => setViewState(newViewState)}
+          layers={layers} />
+        {isLoading && <Loader />}
+        {hoveredFeature && <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />}
+
+      </div>
+      
+    </>
   );
 }
 
