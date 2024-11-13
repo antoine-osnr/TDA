@@ -5,6 +5,10 @@ import Tooltip from './components/Tooltip';
 import Loader from './components/Loader';
 import useLayerLoader from './hooks/useLayerLoader';
 import ProductionInformation from './components/ProductionInformation';
+import CurrentDate from './components/CurrentDate';
+
+import './styles/productionInformation.css';
+
 
 /**
  * The main application component that renders a map and handles user interactions.
@@ -82,7 +86,11 @@ function App() {
   // Render the map, loader, and tooltip components
   return (
     <>
-      <ProductionInformation />
+      <div className="container">
+        <CurrentDate />
+        <div style={{ width: "20px" }}></div>
+        <ProductionInformation />
+      </div>
       <div onMouseMove={handleMouseMove}>
         <MapContainer
           viewState={viewState}
@@ -92,7 +100,7 @@ function App() {
         {hoveredFeature && <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />}
 
       </div>
-      
+
     </>
   );
 }
