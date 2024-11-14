@@ -89,7 +89,7 @@ function App() {
       <div className="container">
         <CurrentDate />
         <div style={{ width: "20px" }}></div>
-        <ProductionInformation />
+        <ProductionInformation clickedFeature={clickedFeature} />
       </div>
       <div onMouseMove={handleMouseMove}>
         <MapContainer
@@ -98,7 +98,6 @@ function App() {
           layers={layers} />
         {isLoading && <Loader />}
         {hoveredFeature && <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />}
-
       </div>
 
     </>
