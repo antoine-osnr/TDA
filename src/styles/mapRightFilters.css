@@ -49,7 +49,16 @@
     background-color: #f0f0f0;
   }
 
-  .fa-icon {
+  .control-button-zoom-in,
+  .control-button-zoom-out {
+    color: #3E4491;
+  }
+
+  .control-button-filter {
+    color: rgb(95, 95, 95);
+  }
+  
+  button:nth-child(3) {
     color: #3E4491;
   }
   
