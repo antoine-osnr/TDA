@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { INITIAL_VIEW_STATE } from './config';
-import MapContainer from './components/MapContainer';
-import Tooltip from './components/Tooltip';
-import Loader from './components/Loader';
-import useLayerLoader from './hooks/useLayerLoader';
-import ProductionInformation from './components/ProductionInformation';
-import CurrentDate from './components/CurrentDate';
+import React, { useState, useEffect, useRef } from "react";
+import { INITIAL_VIEW_STATE } from "./config";
+import MapContainer from "./components/MapContainer";
+import Tooltip from "./components/Tooltip";
+import Loader from "./components/Loader";
+import useLayerLoader from "./hooks/useLayerLoader";
+import ProductionInformation from "./components/ProductionInformation";
+import MapRightFilters from "./components/MapRightFilters";
+import CurrentDate from "./components/CurrentDate";
 
-import './styles/productionInformation.css';
-
+import "./styles/productionInformation.css";
+import "./styles/mapRightFilters.css";
 
 /**
  * The main application component that renders a map and handles user interactions.
@@ -44,23 +45,31 @@ import './styles/productionInformation.css';
  * @property {function} handleMouseMove - Function to handle mouse movement and update mouse position.
  */
 function App() {
-  const [activeLayer, setActiveLayer] = useState('region');
+  const [activeLayer, setActiveLayer] = useState("region");
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [clickedFeature, setClickedFeature] = useState(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const previousLayer = useRef(activeLayer);
 
+  const handleZoomIn = () => {
+    setViewState(prevState => ({ ...prevState, zoom: prevState.zoom + 1 }));
+  };
+
+  const handleZoomOut = () => {
+    setViewState(prevState => ({ ...prevState, zoom: prevState.zoom - 1 }));
+  };
+
   // Monitor zoom level and adjust active layer based on zoom thresholds
   useEffect(() => {
     const { zoom } = viewState;
 
-    if (zoom >= 11 && activeLayer !== 'commune') {
-      setActiveLayer('commune');
-    } else if (zoom >= 8 && zoom < 11 && activeLayer !== 'departement') {
-      setActiveLayer('departement');
-    } else if (zoom < 8 && activeLayer !== 'region') {
-      setActiveLayer('region');
+    if (zoom >= 11 && activeLayer !== "commune") {
+      setActiveLayer("commune");
+    } else if (zoom >= 8 && zoom < 11 && activeLayer !== "departement") {
+      setActiveLayer("departement");
+    } else if (zoom < 8 && activeLayer !== "region") {
+      setActiveLayer("region");
     }
   }, [viewState.zoom, activeLayer]);
 
@@ -95,11 +104,18 @@ function App() {
         <MapContainer
           viewState={viewState}
           onViewStateChange={(newViewState) => setViewState(newViewState)}
-          layers={layers} />
+          layers={layers}
+        />
+        <MapRightFilters 
+          onZoomIn={handleZoomIn} 
+          onZoomOut={handleZoomOut}
+        />
         {isLoading && <Loader />}
-        {hoveredFeature && <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />}
-      </div>
+        {hoveredFeature && (
+          <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />
+        )}
 
+      </div>
     </>
   );
 }
