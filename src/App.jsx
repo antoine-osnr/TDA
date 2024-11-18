@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { INITIAL_VIEW_STATE } from "./config";
+import Header from "./components/Header";
 import MapContainer from "./components/MapContainer";
 import Tooltip from "./components/Tooltip";
 import Loader from "./components/Loader";
@@ -8,6 +9,7 @@ import ProductionInformation from "./components/ProductionInformation";
 import MapRightFilters from "./components/MapRightFilters";
 import CurrentDate from "./components/CurrentDate";
 
+import "./styles/header.css";
 import "./styles/productionInformation.css";
 import "./styles/mapRightFilters.css";
 
@@ -95,6 +97,7 @@ function App() {
   // Render the map, loader, and tooltip components
   return (
     <>
+      <Header />
       <div className="container">
         <CurrentDate />
         <div style={{ width: "20px" }}></div>
@@ -114,7 +117,6 @@ function App() {
         {hoveredFeature && (
           <Tooltip feature={hoveredFeature} mousePosition={mousePosition} />
         )}
-
       </div>
     </>
   );
